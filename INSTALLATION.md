@@ -169,9 +169,24 @@ Run `pnpm install` **from the root**. Running it inside `ui/` creates a second,
 detached install that does not share the workspace lockfile — the most common
 way to end up with two different dependency trees in one repo.
 
-The Python side (`asr.py`, `diarize.py`, `mcp/`, `scripts/`) is deliberately not
+The Python side (`asr.py`, `diarize.py`, `mcp_server/`, `scripts/`) is deliberately not
 in the workspace. It has its own dependencies and its own lifecycle, and pnpm
 has no business managing them.
+
+---
+
+## 4. Agent tools (optional) — MCP
+
+Lets Claude transcribe for you as a tool call.
+
+```bash
+uv pip install --python .venv/bin/python 'mcp>=2'
+python mcp_server/server.py                 # stdio — what a local client uses
+```
+
+For a server other machines reach, you also need `pyjwt` and a secret; the HTTP
+transport refuses to start without one. Full detail, including Claude Desktop
+config and why SSE is deprecated, in [MCP.md](MCP.md).
 
 ---
 

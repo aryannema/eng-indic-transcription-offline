@@ -39,7 +39,7 @@ fine.
 | **Speaker labels** | who spoke when, including *both at once* |
 | **Five output formats** | txt, srt, vtt, json, md |
 | **Long files** | split automatically; a 30-minute recording is fine |
-| **Agent tools** | MCP server, so Claude can transcribe for you |
+| **Agent tools** | MCP server — stdio *and* Streamable HTTP with JWT auth |
 
 Run `python scripts/doctor.py` first — it checks every dependency and prints the
 exact command for anything missing.
@@ -160,6 +160,7 @@ attribution and it is worth reading.
 | [INSTALLATION.md](INSTALLATION.md) | setup, and what breaks |
 | [ROADMAP.md](ROADMAP.md) | what comes next: real-time, TTS, translation |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | how to help — the best ways need no code |
+| [MCP.md](MCP.md) | agent tools: transports, JWT auth, client config |
 | [tests/](tests/) | 22 checks that run without downloading the model |
 | [REQUIREMENTS.md](REQUIREMENTS.md) | hardware and versions |
 | [GUIDANCE.md](GUIDANCE.md) | why it is built this way; **claims to avoid** |
