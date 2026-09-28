@@ -26,12 +26,51 @@ leaves the machine.** There is no port, no listener, and nothing to
 authenticate — the client already started the process, so it already has that
 access. Opening an HTTP listener by default would contradict the product.
 
-**SSE is deprecated, and that is the specification's position, not a preference.**
-MCP replaced HTTP+SSE with Streamable HTTP in revision **2025-03-26**. SSE
-remains here only for clients that have not migrated. Do not build against it.
-If you want network access, use `streamable-http`.
+#### SSE is not dead — the two-endpoint transport is
+
+A distinction worth getting right, because "SSE is deprecated" is a misleading
+shorthand:
+
+| | status |
+|---|---|
+| **SSE the technology** (`text/event-stream`) | **alive** — Streamable HTTP uses it internally |
+| **HTTP+SSE the transport** (two endpoints) | **deprecated**, replaced in revision 2025-03-26 |
+
+**The old transport used two endpoints.** The client opened `GET /sse` and held
+it open indefinitely; the server replied down that long-lived stream while the
+client posted requests to a *separate* `POST /messages/`. Two connections that
+had to stay correlated — so if the stream dropped the session died, and it could
+not survive a load balancer routing the two endpoints to different servers.
+
+**Streamable HTTP uses one endpoint.** `POST /mcp` carries the request, and the
+server answers with either `application/json` or `text/event-stream` depending
+on whether it needs to stream. Same URL, same request. SSE is still there; it is
+a *response mode* now rather than a connection you maintain.
+
+You can see it in the SDK: `mcp/server/streamable_http.py` defines
+`CONTENT_TYPE_SSE = "text/event-stream"`, while the deprecated transport lives
+separately in `mcp/server/sse.py` with its `Route("/sse")` plus
+`Mount("/messages/")` pair.
+
+So: use `streamable-http`. The `sse` option here exists only for clients that
+have not migrated, and prints a deprecation warning.
 
 ## Authentication
+
+The MCP specification's model is **OAuth 2.1 bearer tokens**. How you obtain the
+token is left open, so several approaches are valid:
+
+| | what it is | here? |
+|---|---|---|
+| **none** | stdio only — the client already spawned the process | ✅ stdio |
+| **static shared secret** | one key, one identity, never expires | — |
+| **self-issued JWT** | per-subject, expiring, scoped, no external provider | ✅ **HTTP** |
+| **full OAuth 2.1** | authorization server, discovery, dynamic client registration | SDK supports it; not used here |
+| **mTLS or proxy auth** | handled at the reverse proxy, outside MCP entirely | valid, not implemented |
+
+This project uses **self-issued JWTs**: real expiry and per-client identity
+without depending on an external provider — which suits a tool whose whole point
+is running offline.
 
 **stdio: none, deliberately.** The client spawned the process.
 
@@ -44,6 +83,45 @@ $ python mcp_server/server.py --transport streamable-http
 MCP_JWT_SECRET is not set.
   Generate one:  python scripts/mcp_token.py --new-secret
 ```
+
+### Who generates the key — nobody central
+
+There is no signing authority, no registration and no key server. **The person
+running the server generates the secret on their own machine**, and the same
+process signs and verifies.
+
+```bash
+python scripts/mcp_token.py --new-secret     # 64 random chars, generated locally
+export MCP_JWT_SECRET='...'
+```
+
+HS256 is **symmetric**: one secret both signs and checks. The server handing out
+a token is the server validating it, which is why there is no registration step
+— it is talking to itself.
+
+| | who sets it | what it is for |
+|---|---|---|
+| `MCP_JWT_SECRET` | you, via `--new-secret` | signs and verifies |
+| `MCP_JWT_ISSUER` | defaults to `indic-transcribe` | which system minted this |
+| `MCP_JWT_AUDIENCE` | defaults to `indic-transcribe-mcp` | which system may accept it |
+
+`iss` and `aud` earn their keep when you run **several** services from one
+secret: if two services shared a key and neither checked `aud`, a token for one
+would open the other. Give each service its own `MCP_JWT_AUDIENCE` and it
+cannot. Running a single server? The defaults are correct and you never touch
+them.
+
+**Every clone of this repository gets its own isolated authentication.** Your
+secret is yours; a token minted against it works on your server and nowhere
+else. There is no shared secret in the repository, no default, and nothing to
+leak when it is published — which is also why the server **refuses to start**
+without one rather than falling back. A shipped default would mean every
+deployment on earth shared one key: the appearance of security with none of it.
+
+When you would outgrow this: HS256 shares the secret between whoever mints
+tokens and whoever checks them. If tokens must be minted somewhere you would not
+trust with a signing key, switch to **RS256** — the minter keeps the private
+key, this server needs only the public half. Only the verifier changes.
 
 ### Issuing tokens
 
@@ -97,9 +175,24 @@ Lifetimes are `MCP_JWT_ACCESS_MINUTES` and `MCP_JWT_REFRESH_DAYS`.
 
 ### The type check that makes this worth doing
 
-Both tokens are signed with the same key, by the same issuer, for the same
-audience, carrying the same scopes. **The only thing separating them is a `typ`
-claim**, and it is checked in both directions:
+Decode both tokens from one `--issue` and compare them:
+
+```
+claim    | ACCESS               | REFRESH              | same?
+---------|----------------------|----------------------|--------
+iss      | indic-transcribe     | indic-transcribe     | YES
+aud      | indic-transcribe-mcp | indic-transcribe-mcp | YES
+sub      | aryan                | aryan                | YES
+scopes   | ['transcribe']       | ['transcribe']       | YES
+typ      | access               | refresh              | ** NO **
+exp      | +15 min              | +30 days             | ** NO **
+```
+
+Same key, same algorithm, same everything — **except `typ` and expiry**. Delete
+the `typ` check and the two become literally interchangeable: a 30-day refresh
+token would pass every other test a valid access token passes.
+
+So it is checked in both directions:
 
 ```
 refresh token presented as an access token  ->  rejected
