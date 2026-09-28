@@ -40,21 +40,39 @@ class Transcriber:
     """One loaded model, reusable across files. Load once; decode many."""
 
     def __init__(self, assets: str | Path, language: str = "hi", threads: int = 4,
-                 decoder: str = "rnnt"):
+                 decoder: str = "rnnt", precision: str = "auto"):
         import onnxruntime as ort
 
         if decoder not in ("rnnt", "ctc"):
             raise ValueError(f"decoder must be 'rnnt' or 'ctc', got {decoder!r}")
+        if precision not in ("auto", "fp32", "int8"):
+            raise ValueError(f"precision must be 'auto', 'fp32' or 'int8', got {precision!r}")
         self.assets = Path(assets)
         self.language = language
         self.decoder = decoder
         self._threads = threads
         self._rnnt = None
 
-        enc_p = self.assets / "encoder.onnx"
+        # int8 graphs sit beside the fp32 ones as <name>.int8.onnx. "auto"
+        # prefers int8 when present, because a directory that has it was built
+        # deliberately.
+        def pick(stem: str) -> Path:
+            q = self.assets / f"{stem}.int8.onnx"
+            f = self.assets / f"{stem}.onnx"
+            if precision == "int8":
+                return q
+            if precision == "fp32":
+                return f
+            return q if q.exists() else f
+
+        self._pick = pick
+        enc_p = pick("encoder")
+        self.precision = "int8" if enc_p.name.endswith(".int8.onnx") else "fp32"
         dec_p = self.assets / "ctc_decoder.onnx"
-        for p in (enc_p, dec_p, self.assets / "vocab.json",
-                  self.assets / "language_masks.json"):
+        needed = [enc_p, self.assets / "vocab.json"]
+        if decoder == "ctc":
+            needed += [dec_p, self.assets / "language_masks.json"]
+        for p in needed:
             if not p.exists():
                 raise FileNotFoundError(
                     f"{p.name} not found in {self.assets}. "
@@ -65,17 +83,19 @@ class Transcriber:
         so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         opts = dict(sess_options=so, providers=["CPUExecutionProvider"])
         self._enc = ort.InferenceSession(str(enc_p), **opts)
-        self._dec = ort.InferenceSession(str(dec_p), **opts)
+        self._dec = ort.InferenceSession(str(dec_p), **opts) if dec_p.exists() else None
 
         vocabs = json.loads((self.assets / "vocab.json").read_text(encoding="utf-8"))
-        masks = json.loads((self.assets / "language_masks.json").read_text(encoding="utf-8"))
+        mask_f = self.assets / "language_masks.json"
+        masks = json.loads(mask_f.read_text(encoding="utf-8")) if mask_f.exists() else {}
         if language not in vocabs:
             raise ValueError(f"unknown language {language!r}. "
                              f"available: {', '.join(sorted(vocabs))}")
 
         self.vocab: list[str] = vocabs[language]
-        self._keep = np.flatnonzero(np.asarray(masks[language], dtype=bool))
-        if len(self._keep) != len(self.vocab):
+        self._keep = (np.flatnonzero(np.asarray(masks[language], dtype=bool))
+                      if language in masks else None)
+        if self._keep is not None and len(self._keep) != len(self.vocab):
             raise RuntimeError(
                 f"{language}: mask selects {len(self._keep)} columns but vocab has "
                 f"{len(self.vocab)} tokens -- assets are mismatched")
@@ -264,12 +284,13 @@ class Transcriber:
 
         so = ort.SessionOptions()
         so.intra_op_num_threads = self._threads
-        need = {"joint_enc": "joint_enc.onnx", "pred": "rnnt_decoder.onnx",
-                "joint_pred": "joint_pred.onnx", "pre": "joint_pre_net.onnx",
-                "post": f"joint_post_net_{self.language}.onnx"}
+        need = {"joint_enc": self._pick("joint_enc"), "pred": self._pick("rnnt_decoder"),
+                "joint_pred": self._pick("joint_pred"),
+                "pre": self.assets / "joint_pre_net.onnx",
+                "post": self.assets / f"joint_post_net_{self.language}.onnx"}
         parts = {}
-        for k, fn in need.items():
-            f = self.assets / fn
+        for k, f in need.items():
+            fn = f.name
             if not f.exists():
                 raise FileNotFoundError(
                     f"{fn} missing — RNN-T needs the full export. "

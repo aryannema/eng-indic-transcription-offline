@@ -158,6 +158,23 @@ attribution and it is worth reading.
 | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | model and runtime licences, verbatim |
 | [docs/how-it-works.html](docs/how-it-works.html) | the pipeline, illustrated |
 
+## int8 — experimental
+
+Quantised by **Aryan Nema**. `python scripts/quantize.py` builds it in under a
+minute; the 679 MB result is not committed because GitHub caps files at 100 MB.
+
+| | fp32 | int8 |
+|---|---|---|
+| RAM | 2.74 GB | **1.29 GB** |
+| 45 s Hindi | 1.20 s | **1.03 s** |
+| Disk, 22 languages | 2.4 GB | **679 MB** |
+
+Smaller *and* faster. **But the transcript changes** — agreement with fp32 was
+0.735 / 0.593 on two clips, and inspection shows int8 sometimes more complete,
+sometimes less. With no reference transcript we can say the two differ, not
+which is right. Treat it as an experiment; see
+[GUIDANCE.md](GUIDANCE.md#int8--experimental-quantised-by-aryan-nema).
+
 ## Honest limitations
 
 - **English inside Indic audio comes out transliterated.** The vocabulary has no
@@ -165,6 +182,8 @@ attribution and it is worth reading.
 - **No two-speaker transcripts during crosstalk.** Marked, not separated.
 - **Not streaming.** Faster than real time is not the same as live captioning;
   no streaming model has been published for any Indian language.
+- **int8 is unvalidated.** It saves 53% of memory and runs faster, but no
+  reference transcript exists to say whether its output is better or worse.
 - **Accuracy on overlapped speech is unmeasured.** It recovers far more content
   than the alternative decoder, but no reference transcript exists yet to put a
   number on it, so we do not publish one.

@@ -128,6 +128,57 @@ count is not what you think.
 
 ---
 
+## int8 — experimental, quantised by Aryan Nema
+
+A 53% memory saving that is **not yet proven safe**. Available, off by default.
+
+```bash
+python scripts/quantize.py --assets <fp32 dir> --out models/asr/indic-int8
+python scripts/transcribe.py file.wav --models models/asr/indic-int8
+```
+
+`asr.py` takes `precision="auto"|"fp32"|"int8"`. `auto` prefers int8 when a
+`.int8.onnx` is present, because a directory containing one was built on purpose.
+
+### Measured, 8 CPU threads
+
+| | fp32 | int8 |
+|---|---|---|
+| Peak resident | 2.74 GB | **1.29 GB** |
+| Load | 1.9 s | 1.5 s |
+| 45 s Hindi | 1.20 s | **1.03 s** |
+| 20 s clip | 0.97 s | **0.72 s** |
+| On disk (22 languages) | 2.4 GB | **679 MB** |
+
+Smaller, and faster — quantisation usually costs speed on CPU, and here it does
+not, because less weight moves through memory.
+
+### The drawback, stated honestly
+
+**The text changes, and not always for the worse.** Character-level agreement
+with fp32 was 0.735 and 0.593 on two clips — large. But inspection shows it
+cutting both ways:
+
+| | fp32 | int8 |
+|---|---|---|
+| clip A | `फ्रेशर पच्ची फ्रेशर्स … मेरा सवाल आपसे` | `फ्रेशर्स पचीस हजार फ्रेशर्स … मेरा सवाल आप सब यह है` |
+| clip B | `क्लाइंट्स … प्रोजेक्ट्स` | `क्लाय … प्रोजेक्ट` |
+
+On A the int8 output is *more* complete — it recovers "पचीस हजार" where fp32
+produced a fragment. On B fp32 keeps plurals that int8 drops.
+
+**So we cannot claim int8 is worse, and we must not claim it is equal.** Without
+a reference transcript there is no basis for either. What is measured is that
+the two differ substantially.
+
+### What would settle it
+
+Hand-transcribe two or three minutes of Hindi — or have a native speaker do it —
+and compute WER for both builds against it. Until that exists, int8 is offered
+as an experiment with its numbers published, not as the recommended path.
+
+---
+
 ## Changing things
 
 **Adding a language** is a 0.7 MB file, not a model. The AI4Bharat release has 22 separate
