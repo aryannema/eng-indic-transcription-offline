@@ -140,6 +140,20 @@ python scripts/transcribe.py file.wav --models models/asr/indic-int8
 `asr.py` takes `precision="auto"|"fp32"|"int8"`. `auto` prefers int8 when a
 `.int8.onnx` is present, because a directory containing one was built on purpose.
 
+### Built on
+
+Developed on a Lenovo Legion laptop with an RTX 4090. **The quantisation itself
+never touches the GPU** — `quantize_dynamic` rewrites weight tensors on the CPU,
+takes under a minute, and needs no CUDA. That is worth saying plainly: you do not
+need a 4090 to reproduce this, and claiming otherwise would be untrue.
+
+Where the GPU does matter is what comes next — streaming models and TTS
+(see [ROADMAP.md](ROADMAP.md)) need one for fine-tuning.
+
+Benchmarks below were taken on an Intel Core Ultra 9 285K using
+`CPUExecutionProvider` with 8 threads. No GPU is involved in any published
+figure.
+
 ### Measured, 8 CPU threads
 
 | | fp32 | int8 |

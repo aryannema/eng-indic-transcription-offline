@@ -41,7 +41,13 @@ fine.
 | **Long files** | split automatically; a 30-minute recording is fine |
 | **Agent tools** | MCP server, so Claude can transcribe for you |
 
+Run `python scripts/doctor.py` first — it checks every dependency and prints the
+exact command for anything missing.
+
 ## Measured, on one CPU
+
+Intel Core Ultra 9 285K, 8 threads, `CPUExecutionProvider`. **No GPU is used by
+anything in this repository** — including the int8 conversion, which is CPU work.
 
 | | |
 |---|---|
@@ -150,11 +156,16 @@ attribution and it is worth reading.
 
 | | |
 |---|---|
+| [ENVIRONMENT.md](ENVIRONMENT.md) | **start here** — Python, uv, conda, pnpm, the CAS, ffmpeg |
 | [INSTALLATION.md](INSTALLATION.md) | setup, and what breaks |
+| [ROADMAP.md](ROADMAP.md) | what comes next: real-time, TTS, translation |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | how to help — the best ways need no code |
+| [tests/](tests/) | 22 checks that run without downloading the model |
 | [REQUIREMENTS.md](REQUIREMENTS.md) | hardware and versions |
 | [GUIDANCE.md](GUIDANCE.md) | why it is built this way; **claims to avoid** |
 | [BRANDING.md](BRANDING.md) | marks and colour |
 | [NOTICE.md](NOTICE.md) | attribution |
+| [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | model and runtime licences, verbatim |
 | [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | model and runtime licences, verbatim |
 | [docs/how-it-works.html](docs/how-it-works.html) | the pipeline, illustrated |
 
