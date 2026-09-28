@@ -8,4 +8,3 @@ models/
 *.wav
 *.onnx
 .DS_Store
-*.tsbuildinfo

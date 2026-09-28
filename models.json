@@ -1,31 +1,38 @@
 {
   "_comment": [
     "Weight manifest. Weights are NEVER committed to this repo -- they are fetched",
-    "from Hugging Face at install time by scripts/fetch-models.py.",
+    "from Hugging Face at install time by scripts/fetch_models.py.",
     "",
     "Every entry is pinned to a commit SHA rather than 'main'. A floating pointer",
     "means a user installing tomorrow gets different weights from one installing",
     "today, with no way to tell which they have when a bug is reported.",
     "",
-    "Licences are recorded per model because the installer generates the",
-    "attribution screen from this file. If you add a model, add its licence."
+    "The Indic model is AI4Bharat's OWN export, used as published. An earlier",
+    "revision of this file pointed at a third party's repackaged conversion; that",
+    "is gone. asr.py loads encoder.onnx + the RNN-T graphs + vocab.json directly,",
+    "which only the official layout provides.",
+    "",
+    "'tree' means: enumerate the repo directory at the pinned SHA over the HF API",
+    "and fetch everything in it. encoder.onnx is a 2.8 MB skeleton that references",
+    "368 external tensor files by name, so naming files individually here would be",
+    "unmaintainable and would silently break if upstream re-sharded."
   ],
-
   "tiers": {
     "cpu": {
       "label": "Any laptop, no GPU required",
       "requires": null,
-      "asr_indic": "indic-conformer-int8",
-      "note": "Indic output is romanized/transliterated, not mixed-script."
+      "asr_indic": "indic-conformer-600m",
+      "note": "Indic script output. English words inside Indic audio are transliterated -- the vocabulary has no Latin."
     },
     "gpu": {
       "label": "GPU with 3 GB+ VRAM",
-      "requires": { "vram_gb": 3 },
-      "asr_indic": "indic-conformer-int8",
-      "note": "Same model, GPU-accelerated. Mixed-script needs the server tier."
+      "requires": {
+        "vram_gb": 3
+      },
+      "asr_indic": "indic-conformer-600m",
+      "note": "Indic script output. English words inside Indic audio are transliterated -- the vocabulary has no Latin."
     }
   },
-
   "models": {
     "asr-en": {
       "label": "English speech recognition",
@@ -44,31 +51,6 @@
         "tokens.txt"
       ]
     },
-
-    "indic-conformer-int8": {
-      "label": "Indic speech recognition (8 languages)",
-      "repo": "meetsync/indic-conformer-onnx-sherpa",
-      "sha": "e19ba0d2f49c243f4b4b4ae7e0ee9ff77e24ae87",
-      "license": "MIT",
-      "license_url": "https://huggingface.co/meetsync/indic-conformer-onnx-sherpa",
-      "attribution": "Indic ASR: AI4Bharat Indic Conformer (ONNX conversion by meetsync)",
-      "runtime": "sherpa-onnx OfflineRecognizer (from_nemo_ctc)",
-      "size_mb": 197,
-      "dest": "asr/indic",
-      "files": ["model.int8.onnx", "tokens.txt", "config.json"],
-      "languages": {
-        "_comment": "Hindi and Urdu are deliberately mutually exclusive at onboarding. They are phonetically near-identical and differ mainly in script, so a model asked to choose between them silently writes the wrong script rather than erroring. Letting the user declare one removes the model's weakest decision.",
-        "hi": "हिन्दी — Hindi",
-        "ur": "اردو — Urdu",
-        "bn": "বাংলা — Bengali",
-        "gu": "ગુજરાતી — Gujarati",
-        "kn": "ಕನ್ನಡ — Kannada",
-        "mr": "मराठी — Marathi",
-        "as": "অসমীয়া — Assamese",
-        "brx": "बड़ो — Bodo"
-      }
-    },
-
     "cleanup-llm": {
       "label": "Filler removal, punctuation, capitalisation",
       "repo": "unsloth/Qwen3-0.6B-GGUF",
@@ -80,9 +62,10 @@
       "size_mb": 397,
       "dest": "llm",
       "optional": true,
-      "files": ["Qwen3-0.6B-Q4_K_M.gguf"]
+      "files": [
+        "Qwen3-0.6B-Q4_K_M.gguf"
+      ]
     },
-
     "vad": {
       "label": "Voice activity detection",
       "repo": "csukuangfj/sherpa-onnx-vad",
@@ -93,10 +76,39 @@
       "size_mb": 2,
       "dest": "vad",
       "bundled_with_sherpa": true,
-      "files": ["silero_vad.onnx"]
+      "files": [
+        "silero_vad.onnx"
+      ]
+    },
+    "indic-conformer-600m": {
+      "label": "AI4Bharat IndicConformer-600M — all 22 scheduled Indian languages",
+      "repo": "ai4bharat/indic-conformer-600m-multilingual",
+      "sha": "e9b71b369c048e2c6b634d4c131061c34e441179",
+      "tree": "assets",
+      "dest": "asr/indic",
+      "size_bytes": 2556550705,
+      "size_human": "2.4 GB",
+      "attribution": "AI4Bharat, Indian Institute of Technology Madras, under Bhashini (MeitY, Government of India)",
+      "source": "https://github.com/AI4Bharat/IndicConformerASR",
+      "needs": {
+        "always": [
+          "encoder.onnx",
+          "joint_enc.onnx",
+          "joint_pred.onnx",
+          "joint_pre_net.onnx",
+          "rnnt_decoder.onnx",
+          "ctc_decoder.onnx",
+          "vocab.json",
+          "language_masks.json"
+        ],
+        "per_language": "joint_post_net_{lang}.onnx",
+        "external_data": "every file with no extension — encoder.onnx references these by name"
+      },
+      "note": "One encoder serves all 22 languages; a language is a 0.6 MB head.",
+      "size_mb": 2557,
+      "license": "MIT"
     }
   },
-
   "install_sizes": {
     "_comment": "What a user actually downloads, by what they pick at onboarding.",
     "english_only": 75,

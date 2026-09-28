@@ -86,22 +86,53 @@ no overlap-specific accuracy figure.
 
 ## Install
 
-Python 3.12, one CPU core, 2 GB RAM. Full detail in
+Python 3.12, one CPU core, 4 GB RAM. Full detail in
 [INSTALLATION.md](INSTALLATION.md).
+
+### First: the model is gated
+
+The model is **MIT licensed and approval is automatic**, but the files sit
+behind a Hugging Face account. This takes a minute and cannot be skipped:
+
+1. Sign in at [huggingface.co](https://huggingface.co) and open
+   [ai4bharat/indic-conformer-600m-multilingual](https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual)
+2. Click **Agree and access repository** — granted immediately
+3. Create a **read** token at [settings/tokens](https://huggingface.co/settings/tokens)
+4. `export HF_TOKEN=...` (or run `huggingface-cli login`)
+
+Without it the download fails with `HTTP 401` on every file. The token is read
+from the environment and never written or printed.
+
+### Then
 
 ```bash
 uv venv --python 3.12 .venv
 uv pip install --python .venv/bin/python onnxruntime kaldi-native-fbank numpy
-python scripts/fetch_models.py --indic hi
+
+python scripts/fetch_models.py --list        # the 22 languages
+python scripts/fetch_models.py --indic hi    # 2.4 GB, pinned to a SHA
 python scripts/transcribe.py recording.wav
 ```
 
-Add `sherpa-onnx` only if you want speaker labels. Add the web UI only if you
-want a browser:
+Add `sherpa-onnx` only if you want speaker labels.
+
+**Download size is 2.4 GB and that is almost entirely the encoder**, which is
+shared by all 22 languages — a language is a 0.7 MB head, so a second language
+later costs 0.7 MB, not another 2.4 GB. Expect ~2.2 GB resident while running.
+
+### Web UI (optional) — pnpm workspace
 
 ```bash
-cd ui && pnpm install && pnpm build     # ~2s, 230 KB JS
+corepack enable      # activates the pnpm version pinned in package.json; no nvm needed
+pnpm install         # from the REPO ROOT, not from ui/
+pnpm build           # ~2s
 ```
+
+pnpm rather than npm on purpose: npm's flat `node_modules` lets a package import
+something it never declared, which works on your machine and breaks on someone
+else's. pnpm's store is content-addressable and hard-linked, so one copy of a
+version is shared across every project on the machine. See
+[INSTALLATION.md](INSTALLATION.md#3-web-ui--pnpm-only).
 
 ## Where the models come from
 

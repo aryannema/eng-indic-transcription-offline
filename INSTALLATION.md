@@ -108,26 +108,70 @@ means there is none to forget to change.
 
 ---
 
-## 3. Web UI
+## 3. Web UI — pnpm only
+
+A pnpm workspace. **Use pnpm. Not npm, not yarn, and you do not need nvm.**
 
 ```bash
-cd ui
-pnpm install
-pnpm dev                    # http://localhost:5173
+corepack enable          # ships with Node >= 16.9; activates pnpm from package.json
+pnpm install             # from the repo root, not from ui/
+pnpm build               # ~2s -> 230 KB JS (70 KB gzipped)
+pnpm dev                 # http://localhost:5173
 ```
 
-For a production build:
+`packageManager` in the root `package.json` pins the exact pnpm version, and
+corepack reads it. That is why nvm is unnecessary: corepack is part of Node
+itself, and the version is pinned in the repo rather than in your shell profile.
+
+### Why pnpm and not npm
+
+Not taste — it prevents a specific class of bug. npm installs a **flat**
+`node_modules`, so any package can `import` something it never declared,
+because that dependency happens to be hoisted to the top. It works on your
+machine and fails on someone else's when the hoisting order changes. These are
+called phantom dependencies and they are miserable to diagnose.
+
+pnpm builds a nested, symlinked `node_modules` where a package can only reach
+what it actually declared. An undeclared import fails immediately, at install
+time, on the machine that introduced it.
+
+### The content-addressable store
+
+pnpm keeps one copy of every package version in a global store and **hard-links**
+it into each project, rather than copying.
 
 ```bash
-pnpm build                  # ~2s, 230 KB JS (70 KB gzipped)
-pnpm preview
+pnpm store path          # where it lives
+pnpm store prune         # drop versions nothing references any more
 ```
 
-The UI calls the backend on **relative** `/api/*` paths, so it works behind any reverse proxy
-and equally well with none — Vite's dev server proxies to the backend, and in production the
-two are served from the same origin.
+Two practical consequences:
 
-No nginx is required. It was used in one deployment; nothing depends on it.
+- **Disk.** Ten projects using the same React version hold one copy between
+  them, not ten. `node_modules` here looks like ~200 MB and costs almost nothing
+  extra once the store is warm.
+- **Speed.** A second install of a seen version is a hard link, not a download.
+  The first install of this UI takes ~6 s; repeats are near-instant offline.
+
+Because they are hard links, **never edit a file inside `node_modules`** — you
+would be editing the store, and therefore every project on the machine. Use
+`pnpm patch` if you genuinely need to change a dependency.
+
+### The workspace
+
+```
+pnpm-workspace.yaml     lists the packages
+package.json            root: pins pnpm, holds the shortcut scripts
+ui/                     the React app
+```
+
+Run `pnpm install` **from the root**. Running it inside `ui/` creates a second,
+detached install that does not share the workspace lockfile — the most common
+way to end up with two different dependency trees in one repo.
+
+The Python side (`asr.py`, `diarize.py`, `mcp/`, `scripts/`) is deliberately not
+in the workspace. It has its own dependencies and its own lifecycle, and pnpm
+has no business managing them.
 
 ---
 

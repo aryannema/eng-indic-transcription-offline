@@ -38,6 +38,45 @@ def human(n: float) -> str:
     return f"{n:.1f} TB"
 
 
+def hf_token() -> str | None:
+    """
+    Find a Hugging Face token, without ever printing it.
+
+    Needed because ai4bharat/indic-conformer-600m-multilingual is `gated: auto`.
+    The licence is MIT and approval is automatic, but the files still sit behind
+    an account: you click once to accept, and downloads then need a token. The
+    repo's file LISTING is public, which is why enumeration works and fetching
+    does not -- a confusing failure if you do not know to look for it.
+    """
+    for var in ("HF_TOKEN", "HUGGING_FACE_HUB_TOKEN", "HUGGINGFACE_TOKEN"):
+        v = os.environ.get(var)
+        if v and v.strip():
+            return v.strip()
+    # the location `huggingface-cli login` writes to
+    for c in (Path.home() / ".cache/huggingface/token",
+              Path.home() / ".huggingface/token"):
+        try:
+            if c.is_file():
+                v = c.read_text(encoding="utf-8").strip()
+                if v:
+                    return v
+        except OSError:
+            pass
+    return None
+
+
+GATE_HELP = """
+    This model is gated (licence is MIT; approval is automatic).
+
+      1. Sign in at https://huggingface.co and open
+         https://huggingface.co/ai4bharat/indic-conformer-600m-multilingual
+      2. Click "Agree and access repository" -- granted immediately
+      3. Create a READ token at https://huggingface.co/settings/tokens
+      4. export HF_TOKEN=... , or run: huggingface-cli login
+
+    The token is read from the environment and never written or printed."""
+
+
 def download(repo: str, sha: str, filename: str, dest: Path) -> bool:
     """
     Resolve a file at a pinned revision and stream it to disk.
@@ -50,7 +89,11 @@ def download(repo: str, sha: str, filename: str, dest: Path) -> bool:
     url = f"{HF}/{repo}/resolve/{sha}/{filename}"
 
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "vigyanvani-installer"})
+        headers = {"User-Agent": "indic-transcribe-installer"}
+        tok = hf_token()
+        if tok:
+            headers["Authorization"] = f"Bearer {tok}"
+        req = urllib.request.Request(url, headers=headers)
         with urllib.request.urlopen(req, timeout=60) as r:
             total = int(r.headers.get("Content-Length", 0))
 
@@ -82,11 +125,103 @@ def download(repo: str, sha: str, filename: str, dest: Path) -> bool:
     except urllib.error.HTTPError as e:
         print(f"\r    {filename:<52} HTTP {e.code}")
         if e.code in (401, 403):
-            print(f"      gated repo — accept the terms at {HF}/{repo}")
+            print(f"      HTTP {e.code} — cannot read {repo}")
+            print(GATE_HELP if not hf_token() else
+                  "      A token was found but was refused. Has the repo's\n"
+                  "      licence been accepted with THIS account, and is the\n"
+                  "      token a READ token that has not expired?")
         return False
     except Exception as e:
         print(f"\r    {filename:<52} {type(e).__name__}: {e}")
         return False
+
+
+LANGS = {
+    "as": "Assamese", "bn": "Bengali", "brx": "Bodo", "doi": "Dogri",
+    "gu": "Gujarati", "hi": "Hindi", "kn": "Kannada", "kok": "Konkani",
+    "ks": "Kashmiri", "mai": "Maithili", "ml": "Malayalam", "mni": "Manipuri",
+    "mr": "Marathi", "ne": "Nepali", "or": "Odia", "pa": "Punjabi",
+    "sa": "Sanskrit", "sat": "Santali", "sd": "Sindhi", "ta": "Tamil",
+    "te": "Telugu", "ur": "Urdu",
+}
+
+
+def list_tree(repo: str, sha: str, path: str) -> list:
+    """
+    Enumerate a directory in a HF repo at a pinned revision.
+
+    The file list is not hard-coded because encoder.onnx is a 2.8 MB skeleton
+    that references 368 external tensor files BY NAME. Naming them here would be
+    unmaintainable, and would break silently if upstream ever re-sharded the
+    weights -- you would get a model that loads and produces nonsense.
+    """
+    url = f"{HF}/api/models/{repo}/tree/{sha}/{path}?recursive=1"
+    headers = {"User-Agent": "indic-transcribe-installer"}
+    tok = hf_token()
+    if tok:
+        headers["Authorization"] = f"Bearer {tok}"
+    req = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(req, timeout=60) as r:
+        tree = json.loads(r.read().decode("utf-8"))
+    return [t for t in tree if t.get("type") == "file"]
+
+
+def fetch_tree(entry: dict, models_dir: Path, lang: str) -> bool:
+    """
+    Fetch the official export: every file in the tree except the 21 language
+    heads we do not need.
+
+    This is a 2.4 GB download and the weights are fp32. It is one encoder shared
+    by all 22 languages, so a second language later costs 0.6 MB, not another
+    2.4 GB.
+    """
+    dest = models_dir / entry["dest"]
+    print(f"\n  {entry['label']}")
+    print(f"    {entry['attribution']}")
+    print(f"    licence {entry['license']} · pinned {entry['sha'][:12]} · {entry['size_human']}")
+
+    if not hf_token():
+        print("    NOTE: no Hugging Face token found in the environment.")
+        print(GATE_HELP)
+        print()
+
+    try:
+        files = list_tree(entry["repo"], entry["sha"], entry["tree"])
+    except Exception as e:
+        print(f"    could not list {entry['repo']}: {e}")
+        return False
+
+    keep = []
+    for f in files:
+        name = f["path"].split("/")[-1]
+        # Other languages' heads are pure waste -- skip them, keep ours.
+        if name.startswith("joint_post_net_") and name != f"joint_post_net_{lang}.onnx":
+            continue
+        keep.append(f)
+
+    total = sum(f.get("size") or (f.get("lfs") or {}).get("size") or 0 for f in keep)
+    print(f"    {len(keep)} files, {human(total)} — this takes a while\n")
+
+    ok, done = True, 0
+    for i, f in enumerate(keep, 1):
+        name = f["path"].split("/")[-1]
+        if (dest / name).exists():
+            done += 1
+            continue
+        if not download(entry["repo"], entry["sha"], f["path"], dest / name):
+            ok = False
+        if i % 25 == 0 or i == len(keep):
+            print(f"    … {i}/{len(keep)}")
+
+    if ok:
+        (dest / "language.json").write_text(
+            json.dumps({"language": lang, "name": LANGS.get(lang, lang),
+                        "repo": entry["repo"], "sha": entry["sha"]}, indent=2),
+            encoding="utf-8")
+        print(f"\n    ready: {dest}  ({LANGS.get(lang, lang)})")
+        if done:
+            print(f"    ({done} files already present, skipped)")
+    return ok
 
 
 def fetch(entry: dict, models_dir: Path) -> bool:
@@ -124,11 +259,12 @@ def main() -> int:
             if m.get("bundled_with_sherpa"):
                 continue
             print(f"    {key:<24} {m['size_mb']:>5} MB   {m['license']:<12} {m['label']}")
-        langs = models["indic-conformer-int8"]["languages"]
-        print("\n  Indic languages (choose ONE):\n")
-        for code, name in langs.items():
-            if not code.startswith("_"):
-                print(f"    {code:<6} {name}")
+        print("\n  Indic languages (choose ONE at install):\n")
+        for code, name in sorted(LANGS.items(), key=lambda kv: kv[1]):
+            print(f"    {code:<6} {name}")
+        print("\n  Hindi and Urdu are mutually exclusive by design: the same")
+        print("  acoustic model writes two different scripts, and the choice is")
+        print("  enforced by a mask rather than guessed.")
         print()
         return 0
 
@@ -136,7 +272,7 @@ def main() -> int:
         ap.error("pick at least --english or --indic LANG (see --list)")
 
     if args.indic:
-        langs = models["indic-conformer-int8"]["languages"]
+        langs = LANGS
         if args.indic not in langs:
             valid = " ".join(k for k in langs if not k.startswith("_"))
             print(f"  unknown language '{args.indic}'. Available: {valid}")
@@ -149,15 +285,12 @@ def main() -> int:
         failed.append("asr-en")
 
     if args.indic:
-        if fetch(models["indic-conformer-int8"], models_dir):
-            # Record the chosen language beside the weights. The runtime reads
-            # this instead of guessing, which is the whole point of asking at
-            # onboarding: Hindi and Urdu are near-identical acoustically and a
-            # model made to choose writes the wrong script silently.
-            cfg = models_dir / models["indic-conformer-int8"]["dest"] / "language.json"
-            cfg.write_text(json.dumps({"language": args.indic}, indent=2), encoding="utf-8")
-            print(f"    language locked to '{args.indic}' in {cfg.name}")
-        else:
+        # fetch_tree writes language.json beside the weights on success. The
+        # runtime reads the choice from there instead of guessing -- which is
+        # the whole point of asking at install: the same acoustic model writes
+        # Devanagari or Arabic script depending on the mask, and left to choose
+        # it picks wrong silently.
+        if not fetch_tree(models["indic-conformer-600m"], models_dir, args.indic):
             failed.append("indic")
 
     if args.cleanup and not fetch(models["cleanup-llm"], models_dir):

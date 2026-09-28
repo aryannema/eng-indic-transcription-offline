@@ -1,0 +1,16 @@
+{
+  "name": "eng-indic-transcription-offline",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.27.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "build": "pnpm --filter ./ui build",
+    "dev": "pnpm --filter ./ui dev",
+    "preview": "pnpm --filter ./ui preview",
+    "clean": "rm -rf www/dist ui/node_modules node_modules"
+  }
+}
