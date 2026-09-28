@@ -119,6 +119,7 @@ attribution and it is worth reading.
 | [GUIDANCE.md](GUIDANCE.md) | why it is built this way; **claims to avoid** |
 | [BRANDING.md](BRANDING.md) | marks and colour |
 | [NOTICE.md](NOTICE.md) | attribution |
+| [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | model and runtime licences, verbatim |
 | [docs/how-it-works.html](docs/how-it-works.html) | the pipeline, illustrated |
 
 ## Honest limitations
@@ -135,4 +136,5 @@ attribution and it is worth reading.
 ## Licence
 
 MIT for this code. The models are separately licensed — MIT and Apache-2.0, all
-permitting commercial use. See [LICENSE](LICENSE) and [NOTICE.md](NOTICE.md).
+permitting commercial use. See [LICENSE](LICENSE), [NOTICE.md](NOTICE.md) and
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
