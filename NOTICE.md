@@ -1,5 +1,8 @@
 # Attribution
 
+Created by **Aryan Nema** as an exploration of automatic speech recognition,
+for educational purposes.
+
 This project is a thin layer over models built with public money by public
 institutions. The engineering here is packaging and plumbing; the hard part —
 the acoustic models and the data behind 22 Indian languages — was done by
@@ -19,7 +22,8 @@ others, and this file exists so that is not quietly forgotten.
   **Ministry of Electronics and Information Technology (MeitY), Government of
   India** — the national effort to give every Indian language working speech and
   language technology
-- **Licence:** MIT
+- **Licence:** MIT — © 2024 AI4Bhārat
+- **Source:** https://github.com/AI4Bharat/IndicConformerASR
 - **Pinned revision:** `e9b71b369c048e2c6b634d4c131061c34e441179`
 - **Architecture:** 600M-parameter multilingual Conformer, hybrid CTC + RNN-T
 
@@ -52,7 +56,7 @@ published.
 
 | | |
 |---|---|
-| This project's code | MIT — see [LICENSE](LICENSE) |
+| This project's code | MIT, © 2026 Aryan Nema — see [LICENSE](LICENSE) |
 | IndicConformer model | MIT (AI4Bharat / IIT Madras, Bhashini, MeitY) |
 | Diarization models + runtimes | Apache-2.0 |
 
