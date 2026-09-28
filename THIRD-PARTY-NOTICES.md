@@ -1,12 +1,18 @@
 # Third-party notices
 
+This repository was created by **Aryan Nema** as an exploration of automatic
+speech recognition, for educational purposes. Its own code is MIT
+(© 2026 Aryan Nema — see [LICENSE](LICENSE)).
+
 This project loads speech models it did not create. They are licensed
 separately and are **not** covered by [LICENSE](LICENSE), which applies only to
 the code in this repository.
 
-(Split out of `LICENSE` deliberately: GitHub's licence detector reports
-`NOASSERTION` when anything follows the MIT text, and an undetected licence is
-worse for anyone evaluating whether they may use this.)
+Kept out of `LICENSE` deliberately, and this is measured rather than assumed:
+GitHub's detector reports `NOASSERTION` the moment anything is added to the MIT
+body — including extra words on the copyright line. An undetected licence reads
+as "Other" to anyone evaluating whether they may use this, which is worse than
+having the attribution one click away.
 
 ## IndicConformer
 

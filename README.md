@@ -1,5 +1,10 @@
 # Offline speech-to-text for 22 Indian languages
 
+> Created by **Aryan Nema** as an exploration of automatic speech recognition,
+> for educational purposes. Built on **IndicConformer** by **AI4Bharat**,
+> Indian Institute of Technology Madras — see
+> [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
 Transcribes Hindi, Tamil, Bengali, Marathi, Telugu, Kannada, Malayalam, Gujarati,
 Punjabi, Odia, Assamese, Urdu, Nepali, Sanskrit, Sindhi, Konkani, Maithili,
 Dogri, Bodo, Santali, Manipuri and Kashmiri — on a CPU, with no network.
@@ -135,6 +140,7 @@ attribution and it is worth reading.
 
 ## Licence
 
-MIT for this code. The models are separately licensed — MIT and Apache-2.0, all
+MIT, © 2026 Aryan Nema — created as an exploration of ASR for educational
+purposes. Covers the code in this repository only. The models are separately licensed — MIT and Apache-2.0, all
 permitting commercial use. See [LICENSE](LICENSE), [NOTICE.md](NOTICE.md) and
 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
