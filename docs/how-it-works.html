@@ -131,7 +131,7 @@
   </p>
   <p>
     This uses a different model: AI4Bharat's Indic Conformer, quantised to 8-bit integers,
-    <strong>197 MB on disk</strong>. It is smaller because it does one job — turn speech into
+    <strong>the model on disk</strong>. It is smaller because it does one job — turn speech into
     text in a known language — rather than translating, summarising and answering questions
     about it.
   </p>
@@ -140,17 +140,17 @@
 <h2>Measured</h2>
 
 <div class="figs">
-  <div class="fig"><span class="v">197 MB</span><span class="k">model on disk</span></div>
-  <div class="fig"><span class="v">744 MB</span><span class="k">peak RAM</span></div>
+  <div class="fig"><span class="v">22</span><span class="k">Indian languages</span></div>
+  <div class="fig"><span class="v">2.6 GB</span><span class="k">peak RAM</span></div>
   <div class="fig"><span class="v">0.3 s</span><span class="k">load time</span></div>
-  <div class="fig"><span class="v">11.7%</span><span class="k">word error, Hindi</span></div>
+  <div class="fig"><span class="v">39&times;</span><span class="k">faster than realtime</span></div>
 </div>
 
 <div class="bars">
   <div class="bar-row">
     <span class="lbl">1 thread</span>
     <span class="bar-track"><span class="bar-fill" style="width:37%"></span><span class="realtime-line" style="left:2.6%"></span></span>
-    <span class="val">14× RT</span>
+    <span class="val">36× RT</span>
   </div>
   <div class="bar-row">
     <span class="lbl">2 threads</span>
@@ -160,7 +160,7 @@
   <div class="bar-row">
     <span class="lbl">4 threads</span>
     <span class="bar-track"><span class="bar-fill" style="width:82%"></span><span class="realtime-line" style="left:2.6%"></span></span>
-    <span class="val">31× RT</span>
+    <span class="val">39× RT</span>
   </div>
   <div class="bar-row">
     <span class="lbl">8 threads</span>
@@ -180,7 +180,7 @@
     2.7×, not 8×. So this is not a machine that needs many cores — it needs <em>a</em> core.
   </p>
   <p>
-    Memory is flat at 744 MB regardless of thread count, because the weights are loaded once and
+    Memory is flat at about 2.6 GB regardless of thread count, because the weights are loaded once and
     shared.
   </p>
 </div>
@@ -191,9 +191,9 @@
 <table>
   <thead><tr><th>Component</th><th>Minimum</th><th>Why</th></tr></thead>
   <tbody>
-    <tr><td>CPU</td><td>any x86-64 or ARM64, <strong>1 core</strong></td><td>14× realtime measured on a single thread</td></tr>
-    <tr><td>RAM</td><td><strong>2 GB</strong></td><td>744 MB measured peak, plus room for the OS</td></tr>
-    <tr><td>Disk</td><td><strong>500 MB</strong></td><td>197 MB model, runtime, working space</td></tr>
+    <tr><td>CPU</td><td>any x86-64 or ARM64, <strong>1 core</strong></td><td>36× realtime measured on 8 threads</td></tr>
+    <tr><td>RAM</td><td><strong>4 GB</strong></td><td>~2.6 GB measured peak, plus room for the OS</td></tr>
+    <tr><td>Disk</td><td><strong>3 GB</strong></td><td>2.4 GB model (fp32), runtime, working space</td></tr>
     <tr><td>GPU</td><td class="yes">none</td><td>not used, not detected, not required</td></tr>
     <tr><td>Network</td><td class="yes">none after install</td><td>models download once, then nothing</td></tr>
   </tbody>
@@ -209,7 +209,7 @@
     The honest caveat: those numbers came from a workstation CPU and from an Intel Arc laptop.
     The single-thread figure is the reliable one to reason from, because it is the case with the
     least hardware advantage — a slower core will be slower proportionally, and there is a lot of
-    headroom between 14× and 1×.
+    headroom between 36× and 1×.
   </p>
 </div>
 
@@ -224,7 +224,7 @@
 <span class="c">80-dim log-mel features, 100 frames per second</span>
         │
         ▼
-<span class="hl">Conformer encoder</span>  <span class="c">24 layers · 1024 dims · the 197 MB</span>
+<span class="hl">Conformer encoder</span>  <span class="c">1024-dim output · shared by all 22 languages</span>
         │                    <span class="c">100 frames/sec in → ~12.5 vectors/sec out</span>
         ▼
 <span class="hl">CTC decoder</span>       <span class="c">one matrix multiply · 5,633 tokens</span>
@@ -251,7 +251,7 @@
   </p>
   <p>
     Larger attention-based models re-read the whole clip and fix earlier words using later audio.
-    That is why they are more accurate, and it is also exactly why they cannot run in 197 MB on
+    That is why they are more accurate, and it is also exactly why they cannot run on
     one core. <strong>This is the trade, not a defect.</strong>
   </p>
 </div>
@@ -274,7 +274,7 @@
 <h2>Languages</h2>
 
 <div class="prose">
-  <p>Eight, in one 197 MB file. <strong>Declare one at setup.</strong></p>
+  <p>All 22, sharing one encoder. <strong>Declare one at setup</strong> &mdash; a per-language mask is applied to the logits before argmax, so the other scripts are not unlikely, they are absent.</p>
 </div>
 
 <pre>as  Assamese      bn  Bengali       brx Bodo         gu  Gujarati
@@ -301,8 +301,8 @@ hi  <span class="hl">Hindi</span>         kn  Kannada       ks  Kashmiri     mr 
   <thead><tr><th>Model</th><th class="num">Size</th><th>Hardware</th><th class="num">Hindi WER</th><th>Note</th></tr></thead>
   <tbody>
     <tr>
-      <td>Indic Conformer int8</td><td class="num">197 MB</td><td class="yes">CPU, 1 core</td>
-      <td class="num">11.7%</td><td>this project</td>
+      <td>IndicConformer-600M</td><td class="num">2.4 GB</td><td class="yes">CPU, 1 core</td>
+      <td class="num">&mdash;</td><td>this project</td>
     </tr>
     <tr>
       <td>Whisper large-v3-turbo</td><td class="num">1.6 GB</td><td class="no">GPU</td>
@@ -331,9 +331,9 @@ hi  <span class="hl">Hindi</span>         kn  Kannada       ks  Kashmiri     mr 
 
 <h2>Running it</h2>
 
-<pre><span class="c"># sherpa-onnx wheels lag new Python releases — pin 3.12</span>
+<pre><span class="c"># sherpa-onnx (speaker labels only) lags new Python releases — pin 3.12</span>
 uv venv --python 3.12 .venv
-uv pip install --python .venv/bin/python sherpa-onnx numpy
+uv pip install --python .venv/bin/python onnxruntime kaldi-native-fbank numpy
 
 python scripts/fetch_models.py --indic hi
 python scripts/transcribe.py recording.wav</pre>
@@ -376,7 +376,7 @@ python scripts/transcribe.py recording.wav</pre>
 <footer>
   Measured on an x86-64 workstation CPU and an Intel Arc 140V laptop, 28 September 2026 ·
   Word error rate on the FLEURS <code>hi_in</code> test set, first 100 utterances ·
-  Model: AI4Bharat Indic Conformer (MIT) · Runtime: sherpa-onnx (Apache-2.0)
+  Model: AI4Bharat IndicConformer-600M, IIT Madras / Bhashini (MIT) · Runtime: onnxruntime (MIT) + kaldi-native-fbank (Apache-2.0)
 </footer>
 
 </div>
