@@ -345,6 +345,31 @@ def main() -> None:
     except Exception as e:
         sys.exit(str(e))
 
+    # Refresh lives on a custom route rather than as an MCP tool, on purpose:
+    # a tool call needs a valid access token to reach it, so an expired client
+    # could never refresh. It has to sit outside the authenticated surface.
+    from mcp_server.auth import refresh as do_refresh
+
+    async def refresh_route(request):
+        from starlette.responses import JSONResponse
+        try:
+            body = await request.json()
+        except Exception:
+            return JSONResponse({"error": "body is not valid JSON"}, status_code=400)
+        tok = (body or {}).get("refresh_token")
+        if not isinstance(tok, str) or not tok:
+            return JSONResponse(
+                {"error": 'send {"refresh_token": "<token>"}'}, status_code=400)
+        issued = do_refresh(tok)
+        if not issued:
+            # Expired, wrong signature, and "that is an access token" are one
+            # answer here and three different lines in the log.
+            return JSONResponse(
+                {"error": "refresh token not accepted; obtain a new pair"},
+                status_code=401)
+        # A token is not cacheable by anything, ever.
+        return JSONResponse(issued, headers={"Cache-Control": "no-store"})
+
     base = f"http://{a.host}:{a.port}"
     authed = MCPServer(
         name=server.name, version=server.version, instructions=server.instructions,
@@ -355,11 +380,19 @@ def main() -> None:
     for t in _TOOLS:
         authed.add_tool(t)
 
+    try:
+        authed.custom_route("/refresh", methods=["POST"])(refresh_route)
+    except Exception as e:                                  # noqa: BLE001
+        print(f"note: refresh route unavailable ({e}); use scripts/mcp_token.py "
+              f"--refresh instead", file=sys.stderr)
+
     if a.host == "0.0.0.0":
         print("warning: binding 0.0.0.0 exposes transcription to every host that "
               "can reach this machine. A valid token is then the only thing "
               "between them and your audio.", file=sys.stderr)
     print(f"serving MCP over {a.transport} on {base} (bearer token required)",
+          file=sys.stderr)
+    print(f"  refresh: POST {base}/refresh  {{'refresh_token': '...'}}",
           file=sys.stderr)
     authed.run(transport=a.transport, host=a.host, port=a.port)
 

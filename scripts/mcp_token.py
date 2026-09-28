@@ -33,12 +33,17 @@ def main() -> int:
     g.add_argument("--new-secret", action="store_true",
                    help="print a fresh 64-character secret")
     g.add_argument("--issue", metavar="SUBJECT",
-                   help="mint a token for this subject (a person or a service)")
+                   help="mint an access + refresh token pair for this subject")
+    g.add_argument("--access-only", metavar="SUBJECT",
+                   help="mint only a short-lived access token")
+    g.add_argument("--refresh", metavar="TOKEN",
+                   help="exchange a refresh token for a new access token")
     g.add_argument("--inspect", metavar="TOKEN",
                    help="decode and verify a token")
-    ap.add_argument("--days", type=int, default=30,
-                    help="lifetime (default 30). Short is better: revocation is "
-                         "not implemented, so expiry IS the revocation mechanism.")
+    ap.add_argument("--days", type=int, default=None,
+                    help="refresh-token lifetime in days (default 30)")
+    ap.add_argument("--minutes", type=int, default=None,
+                    help="access-token lifetime in minutes (default 15)")
     ap.add_argument("--scopes", default="transcribe",
                     help="space-separated scopes (default: transcribe)")
     a = ap.parse_args()
@@ -54,21 +59,59 @@ def main() -> int:
         return 0
 
     try:
-        from mcp_server.auth import issue, MissingSecret, ISSUER, AUDIENCE, ALGORITHM
+        from mcp_server.auth import (issue_access, issue_refresh, refresh as do_refresh,
+                                     MissingSecret, ISSUER, AUDIENCE, ALGORITHM,
+                                     ACCESS_MINUTES, REFRESH_DAYS)
     except ImportError as e:
         print(f"needs mcp and pyjwt: pip install 'mcp>=2' pyjwt\n({e})", file=sys.stderr)
         return 1
 
-    if a.issue:
+    scopes = a.scopes.split()
+
+    if a.access_only:
         try:
-            tok = issue(a.issue, days=a.days, scopes=a.scopes.split())
+            print(issue_access(a.access_only, minutes=a.minutes, scopes=scopes))
         except MissingSecret as e:
             print(e, file=sys.stderr)
             return 1
-        print(tok)
-        print(f"\n  subject {a.issue} · {a.days} days · scopes: {a.scopes}",
+        print(f"\n  access token · {a.minutes or ACCESS_MINUTES} min · {a.access_only}",
               file=sys.stderr)
-        print("  Client sends it as:  Authorization: Bearer <token>", file=sys.stderr)
+        return 0
+
+    if a.refresh:
+        try:
+            out = do_refresh(a.refresh)
+        except MissingSecret as e:
+            print(e, file=sys.stderr)
+            return 1
+        if not out:
+            print("refresh rejected — expired, wrong secret, or not a refresh token",
+                  file=sys.stderr)
+            return 1
+        print(out["access_token"])
+        print(f"\n  new access token · expires in {out['expires_in'] // 60} min",
+              file=sys.stderr)
+        return 0
+
+    if a.issue:
+        try:
+            acc = issue_access(a.issue, minutes=a.minutes, scopes=scopes)
+            ref = issue_refresh(a.issue, days=a.days, scopes=scopes)
+        except MissingSecret as e:
+            print(e, file=sys.stderr)
+            return 1
+        print(json.dumps({
+            "access_token": acc,
+            "refresh_token": ref,
+            "token_type": "Bearer",
+            "expires_in": (a.minutes or ACCESS_MINUTES) * 60,
+        }, indent=2))
+        print(f"\n  subject {a.issue} · scopes: {a.scopes}", file=sys.stderr)
+        print(f"  access  · {a.minutes or ACCESS_MINUTES} min · send as "
+              f"Authorization: Bearer <access_token>", file=sys.stderr)
+        print(f"  refresh · {a.days or REFRESH_DAYS} days · use ONLY with --refresh;",
+              file=sys.stderr)
+        print("            it cannot call a tool, by design.", file=sys.stderr)
         return 0
 
     # --inspect

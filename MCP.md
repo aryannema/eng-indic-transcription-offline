@@ -51,11 +51,76 @@ MCP_JWT_SECRET is not set.
 python scripts/mcp_token.py --new-secret        # 64 chars
 export MCP_JWT_SECRET='...'
 
-python scripts/mcp_token.py --issue aryan --days 7
+python scripts/mcp_token.py --issue aryan       # a PAIR
 python scripts/mcp_token.py --inspect <token>
 ```
 
-The client sends `Authorization: Bearer <token>`.
+`--issue` returns two tokens:
+
+```json
+{
+  "access_token":  "…",
+  "refresh_token": "…",
+  "token_type": "Bearer",
+  "expires_in": 900
+}
+```
+
+The client sends `Authorization: Bearer <access_token>`.
+
+### Access and refresh
+
+| | lifetime | what it can do |
+|---|---|---|
+| **access** | 15 min | call tools |
+| **refresh** | 30 days | obtain a new access token — **nothing else** |
+
+A long-lived access token that leaks is usable until it expires, and you cannot
+tell it leaked. A 15-minute one caps that window, and the refresh token is sent
+only when refreshing rather than on every call, so it spends far less time in
+transit and in logs.
+
+```bash
+# over HTTP
+curl -X POST http://127.0.0.1:8080/refresh \
+  -H 'Content-Type: application/json' \
+  -d '{"refresh_token":"…"}'
+
+# or locally
+python scripts/mcp_token.py --refresh <refresh-token>
+```
+
+Refresh sits on its own route rather than being an MCP tool, because a tool call
+needs a valid access token to reach it — an expired client could never refresh.
+
+Lifetimes are `MCP_JWT_ACCESS_MINUTES` and `MCP_JWT_REFRESH_DAYS`.
+
+### The type check that makes this worth doing
+
+Both tokens are signed with the same key, by the same issuer, for the same
+audience, carrying the same scopes. **The only thing separating them is a `typ`
+claim**, and it is checked in both directions:
+
+```
+refresh token presented as an access token  ->  rejected
+access token presented as a refresh token   ->  rejected
+```
+
+Without the first, a 30-day refresh token would call tools and the short access
+lifetime would be decoration. Without the second, a leaked access token could
+mint replacements forever. Tested both ways.
+
+### What is deliberately NOT implemented: rotation
+
+Rotation — issuing a new refresh token on every exchange and invalidating the
+old one — is stronger, because it **detects theft**: if a thief and the
+legitimate client both use the same refresh token, one of them presents a
+superseded one and you know.
+
+But detecting that needs **server-side state**, a record of which tokens have
+been used. This server is deliberately stateless. A rotation with nothing to
+compare against would look like protection while providing none, so it is not
+here. If you need rotation, you need a token store first.
 
 ### What is implemented, and what is not
 
