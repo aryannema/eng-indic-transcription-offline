@@ -1,0 +1,106 @@
+{
+  "_comment": [
+    "Weight manifest. Weights are NEVER committed to this repo -- they are fetched",
+    "from Hugging Face at install time by scripts/fetch-models.py.",
+    "",
+    "Every entry is pinned to a commit SHA rather than 'main'. A floating pointer",
+    "means a user installing tomorrow gets different weights from one installing",
+    "today, with no way to tell which they have when a bug is reported.",
+    "",
+    "Licences are recorded per model because the installer generates the",
+    "attribution screen from this file. If you add a model, add its licence."
+  ],
+
+  "tiers": {
+    "cpu": {
+      "label": "Any laptop, no GPU required",
+      "requires": null,
+      "asr_indic": "indic-conformer-int8",
+      "note": "Indic output is romanized/transliterated, not mixed-script."
+    },
+    "gpu": {
+      "label": "GPU with 3 GB+ VRAM",
+      "requires": { "vram_gb": 3 },
+      "asr_indic": "indic-conformer-int8",
+      "note": "Same model, GPU-accelerated. Mixed-script needs the server tier."
+    }
+  },
+
+  "models": {
+    "asr-en": {
+      "label": "English speech recognition",
+      "repo": "csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26",
+      "sha": "672fbf1b30579d6585301139bb363f42a0ad4a24",
+      "license": "Apache-2.0",
+      "license_url": "https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-en-2023-06-26",
+      "attribution": "English ASR: streaming Zipformer by k2-fsa (Next-gen Kaldi)",
+      "runtime": "sherpa-onnx OnlineRecognizer (transducer)",
+      "size_mb": 73,
+      "dest": "asr/en",
+      "files": [
+        "encoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+        "decoder-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+        "joiner-epoch-99-avg-1-chunk-16-left-128.int8.onnx",
+        "tokens.txt"
+      ]
+    },
+
+    "indic-conformer-int8": {
+      "label": "Indic speech recognition (8 languages)",
+      "repo": "meetsync/indic-conformer-onnx-sherpa",
+      "sha": "e19ba0d2f49c243f4b4b4ae7e0ee9ff77e24ae87",
+      "license": "MIT",
+      "license_url": "https://huggingface.co/meetsync/indic-conformer-onnx-sherpa",
+      "attribution": "Indic ASR: AI4Bharat Indic Conformer (ONNX conversion by meetsync)",
+      "runtime": "sherpa-onnx OfflineRecognizer (from_nemo_ctc)",
+      "size_mb": 197,
+      "dest": "asr/indic",
+      "files": ["model.int8.onnx", "tokens.txt", "config.json"],
+      "languages": {
+        "_comment": "Hindi and Urdu are deliberately mutually exclusive at onboarding. They are phonetically near-identical and differ mainly in script, so a model asked to choose between them silently writes the wrong script rather than erroring. Letting the user declare one removes the model's weakest decision.",
+        "hi": "हिन्दी — Hindi",
+        "ur": "اردو — Urdu",
+        "bn": "বাংলা — Bengali",
+        "gu": "ગુજરાતી — Gujarati",
+        "kn": "ಕನ್ನಡ — Kannada",
+        "mr": "मराठी — Marathi",
+        "as": "অসমীয়া — Assamese",
+        "brx": "बड़ो — Bodo"
+      }
+    },
+
+    "cleanup-llm": {
+      "label": "Filler removal, punctuation, capitalisation",
+      "repo": "unsloth/Qwen3-0.6B-GGUF",
+      "sha": "23749fefcc72300e1e0f9ba2d0c50bd5c8b70d5e",
+      "license": "Apache-2.0",
+      "license_url": "https://huggingface.co/Qwen/Qwen3-0.6B",
+      "attribution": "Text cleanup: Qwen3-0.6B by Alibaba Cloud",
+      "runtime": "llama.cpp",
+      "size_mb": 397,
+      "dest": "llm",
+      "optional": true,
+      "files": ["Qwen3-0.6B-Q4_K_M.gguf"]
+    },
+
+    "vad": {
+      "label": "Voice activity detection",
+      "repo": "csukuangfj/sherpa-onnx-vad",
+      "sha": null,
+      "license": "MIT",
+      "attribution": "VAD: Silero VAD",
+      "runtime": "sherpa-onnx",
+      "size_mb": 2,
+      "dest": "vad",
+      "bundled_with_sherpa": true,
+      "files": ["silero_vad.onnx"]
+    }
+  },
+
+  "install_sizes": {
+    "_comment": "What a user actually downloads, by what they pick at onboarding.",
+    "english_only": 75,
+    "english_plus_one_indic": 272,
+    "english_plus_indic_plus_cleanup": 669
+  }
+}

@@ -1,0 +1,382 @@
+<title>Transcription Without A GPU</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+  :root {
+    --bg:#EDEFF2; --surface:#FBFCFD; --surface-2:#E3E7EB;
+    --ink:#10151B; --ink-2:#3D4753; --muted:#69737F;
+    --line:#CFD5DC; --line-soft:#DFE4E9;
+    --ok:#0B6E7F;  --ok-bg:#DCEEF1;
+    --warn:#96590F; --warn-bg:#F3E7D6;
+    --bad:#8A2F2F;
+    --shadow:0 1px 2px rgba(16,21,27,.06),0 8px 24px -12px rgba(16,21,27,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#0D1116; --surface:#151B22; --surface-2:#1E262F;
+      --ink:#E5EAEF; --ink-2:#B3BDC7; --muted:#7D8996;
+      --line:#2A343E; --line-soft:#202932;
+      --ok:#43B9C9; --ok-bg:#11313A;
+      --warn:#D7943C; --warn-bg:#332612;
+      --bad:#E0736B;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.7);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#0D1116; --surface:#151B22; --surface-2:#1E262F;
+    --ink:#E5EAEF; --ink-2:#B3BDC7; --muted:#7D8996;
+    --line:#2A343E; --line-soft:#202932;
+    --ok:#43B9C9; --ok-bg:#11313A;
+    --warn:#D7943C; --warn-bg:#332612;
+    --bad:#E0736B;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -12px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:"Source Serif 4",Georgia,serif;font-size:17px;line-height:1.62;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:0 24px 88px}
+  .prose{max-width:64ch}
+  h1,h2,h3,.ui{font-family:"IBM Plex Sans",system-ui,sans-serif}
+  .mono,code{font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+  header{padding:70px 0 34px;border-bottom:1px solid var(--line);margin-bottom:42px}
+  .kicker{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:500;
+          letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 0 18px}
+  h1{font-size:clamp(32px,5vw,50px);line-height:1.05;letter-spacing:-.025em;
+     font-weight:700;margin:0 0 18px;text-wrap:balance}
+  .standfirst{font-size:19px;line-height:1.55;color:var(--ink-2);margin:0;max-width:60ch}
+  h2{font-size:14px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+     color:var(--muted);margin:66px 0 10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+  h2+.prose,h2+p{margin-top:22px}
+  h3{font-size:19px;font-weight:600;letter-spacing:-.01em;margin:30px 0 8px}
+  p{margin:0 0 17px}
+  code{font-size:.87em;background:var(--surface-2);padding:1px 5px;border-radius:3px}
+  strong{font-weight:600}
+  a{color:var(--ok)}
+
+  pre{background:var(--surface);border:1px solid var(--line);border-radius:4px;
+      padding:16px 18px;overflow-x:auto;font-family:"IBM Plex Mono",monospace;
+      font-size:12.5px;line-height:1.7;margin:20px 0}
+  pre .c{color:var(--muted)}
+  pre .hl{color:var(--ok);font-weight:600}
+
+  /* measured figures */
+  .figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(126px,1fr));gap:1px;
+        background:var(--line-soft);border:1px solid var(--line-soft);border-radius:4px;
+        margin:24px 0;overflow:hidden}
+  .fig{background:var(--surface);padding:14px 16px}
+  .fig .v{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:600;
+          letter-spacing:-.02em;font-variant-numeric:tabular-nums;display:block;color:var(--ok)}
+  .fig .k{font-family:"IBM Plex Sans",sans-serif;font-size:10.5px;color:var(--muted);
+          letter-spacing:.05em;text-transform:uppercase;margin-top:4px;display:block}
+
+  .tbl{overflow-x:auto;margin:24px 0}
+  table{border-collapse:collapse;width:100%;min-width:480px;
+        font-family:"IBM Plex Sans",sans-serif;font-size:14px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line-soft)}
+  th{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+     color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap}
+  td:first-child{font-weight:600;white-space:nowrap}
+  td.num,th.num{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;text-align:right}
+  .yes{color:var(--ok);font-weight:600}
+  .no{color:var(--warn);font-weight:600}
+
+  /* the speed bar — encodes the finding that 1 thread already suffices */
+  .bars{margin:26px 0;font-family:"IBM Plex Mono",monospace;font-size:12px}
+  .bar-row{display:grid;grid-template-columns:74px 1fr 76px;gap:12px;align-items:center;
+           padding:7px 0;border-bottom:1px solid var(--line-soft)}
+  .bar-row:last-child{border-bottom:none}
+  .bar-row .lbl{color:var(--muted);text-align:right}
+  .bar-track{height:20px;background:var(--surface-2);border-radius:2px;overflow:hidden;position:relative}
+  .bar-fill{height:100%;background:var(--ok);opacity:.82;border-radius:2px}
+  .bar-row .val{font-weight:600;color:var(--ink)}
+  .realtime-line{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--bad);opacity:.7}
+
+  .call{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ok);
+        border-radius:3px;padding:20px 24px;margin:26px 0}
+  .call.warn{border-left-color:var(--warn)}
+  .call h4{font-family:"IBM Plex Sans",sans-serif;font-size:15px;font-weight:600;margin:0 0 9px}
+  .call p{font-size:15.5px;margin:0 0 12px} .call p:last-child{margin-bottom:0}
+
+  footer{margin-top:76px;padding-top:24px;border-top:1px solid var(--line);
+         font-family:"IBM Plex Sans",sans-serif;font-size:13px;color:var(--muted)}
+  :focus-visible{outline:2px solid var(--ok);outline-offset:2px}
+  @media(max-width:620px){
+    body{font-size:16px}
+    .bar-row{grid-template-columns:56px 1fr 62px;gap:8px}
+  }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="kicker">indic-transcription · measured 2026-09-28</p>
+  <h1>Transcription Without A GPU</h1>
+  <p class="standfirst">
+    Hindi and seven other Indian languages, transcribed on an ordinary CPU at fourteen times
+    faster than the audio plays — on <em>one</em> core. No graphics card, no CUDA, no network.
+    Every number below came off our own hardware.
+  </p>
+</header>
+
+<div class="prose">
+  <p>
+    The assumption that speech recognition needs a GPU comes from the models most people meet
+    first. Whisper is 1.5 billion parameters. Sarvam's Saaras uses a 3B decoder. Bodhan's
+    Indic-Transcribe is 1.2B and takes <strong>85 seconds to transcribe 20 seconds of audio</strong>
+    on a CPU — measured, and comfortably unusable.
+  </p>
+  <p>
+    This uses a different model: AI4Bharat's Indic Conformer, quantised to 8-bit integers,
+    <strong>197 MB on disk</strong>. It is smaller because it does one job — turn speech into
+    text in a known language — rather than translating, summarising and answering questions
+    about it.
+  </p>
+</div>
+
+<h2>Measured</h2>
+
+<div class="figs">
+  <div class="fig"><span class="v">197 MB</span><span class="k">model on disk</span></div>
+  <div class="fig"><span class="v">744 MB</span><span class="k">peak RAM</span></div>
+  <div class="fig"><span class="v">0.3 s</span><span class="k">load time</span></div>
+  <div class="fig"><span class="v">11.7%</span><span class="k">word error, Hindi</span></div>
+</div>
+
+<div class="bars">
+  <div class="bar-row">
+    <span class="lbl">1 thread</span>
+    <span class="bar-track"><span class="bar-fill" style="width:37%"></span><span class="realtime-line" style="left:2.6%"></span></span>
+    <span class="val">14× RT</span>
+  </div>
+  <div class="bar-row">
+    <span class="lbl">2 threads</span>
+    <span class="bar-track"><span class="bar-fill" style="width:58%"></span><span class="realtime-line" style="left:2.6%"></span></span>
+    <span class="val">22× RT</span>
+  </div>
+  <div class="bar-row">
+    <span class="lbl">4 threads</span>
+    <span class="bar-track"><span class="bar-fill" style="width:82%"></span><span class="realtime-line" style="left:2.6%"></span></span>
+    <span class="val">31× RT</span>
+  </div>
+  <div class="bar-row">
+    <span class="lbl">8 threads</span>
+    <span class="bar-track"><span class="bar-fill" style="width:100%"></span><span class="realtime-line" style="left:2.6%"></span></span>
+    <span class="val">38× RT</span>
+  </div>
+</div>
+
+<div class="prose">
+  <p>
+    The red line is real time — audio playing at normal speed. Everything is far to the right of
+    it, and <strong>the single-threaded case is the one that matters</strong>: 45 seconds of
+    speech decoded in 3.2 seconds on one core.
+  </p>
+  <p>
+    Threads help, and they help less than you would expect. Going from one core to eight buys
+    2.7×, not 8×. So this is not a machine that needs many cores — it needs <em>a</em> core.
+  </p>
+  <p>
+    Memory is flat at 744 MB regardless of thread count, because the weights are loaded once and
+    shared.
+  </p>
+</div>
+
+<h2>Minimum hardware</h2>
+
+<div class="tbl">
+<table>
+  <thead><tr><th>Component</th><th>Minimum</th><th>Why</th></tr></thead>
+  <tbody>
+    <tr><td>CPU</td><td>any x86-64 or ARM64, <strong>1 core</strong></td><td>14× realtime measured on a single thread</td></tr>
+    <tr><td>RAM</td><td><strong>2 GB</strong></td><td>744 MB measured peak, plus room for the OS</td></tr>
+    <tr><td>Disk</td><td><strong>500 MB</strong></td><td>197 MB model, runtime, working space</td></tr>
+    <tr><td>GPU</td><td class="yes">none</td><td>not used, not detected, not required</td></tr>
+    <tr><td>Network</td><td class="yes">none after install</td><td>models download once, then nothing</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="prose">
+  <p>
+    That is a specification most machines built since roughly 2012 already meet. It also means a
+    Raspberry Pi 4, a low-end office desktop, or a VPS with no accelerator.
+  </p>
+  <p>
+    The honest caveat: those numbers came from a workstation CPU and from an Intel Arc laptop.
+    The single-thread figure is the reliable one to reason from, because it is the case with the
+    least hardware advantage — a slower core will be slower proportionally, and there is a lot of
+    headroom between 14× and 1×.
+  </p>
+</div>
+
+<h2>How it works</h2>
+
+<pre><span class="c">audio file or microphone</span>
+        │
+        ▼
+<span class="hl">16 kHz · mono · float32 · [-1.0, 1.0]</span>      <span class="c">the contract every ASR model expects</span>
+        │
+        ▼
+<span class="c">80-dim log-mel features, 100 frames per second</span>
+        │
+        ▼
+<span class="hl">Conformer encoder</span>  <span class="c">24 layers · 1024 dims · the 197 MB</span>
+        │                    <span class="c">100 frames/sec in → ~12.5 vectors/sec out</span>
+        ▼
+<span class="hl">CTC decoder</span>       <span class="c">one matrix multiply · 5,633 tokens</span>
+        │
+        ▼
+<span class="c">collapse repeats → text</span></pre>
+
+<div class="prose">
+  <p>
+    The decoder is the surprising part. It is <strong>two operations</strong> — a matrix multiply
+    and an addition — projecting 1024 dimensions onto a 5,633-token vocabulary, once per frame,
+    with nothing carried between frames. That statelessness is why it is fast and why it fits.
+  </p>
+</div>
+
+<h3>The catch, stated plainly</h3>
+
+<div class="call warn">
+  <h4>No language model means no self-correction</h4>
+  <p>
+    Each frame is decided independently. There is nothing in the decoder that knows
+    <code>फ्रेशर</code> is a word and <code>ेशर</code> is not, so under noise it drops a syllable
+    and has no way to recover.
+  </p>
+  <p>
+    Larger attention-based models re-read the whole clip and fix earlier words using later audio.
+    That is why they are more accurate, and it is also exactly why they cannot run in 197 MB on
+    one core. <strong>This is the trade, not a defect.</strong>
+  </p>
+</div>
+
+<h3>English words come out in Devanagari</h3>
+
+<div class="prose">
+  <p>
+    The vocabulary is 5,633 tokens and all of them are Indic script. The word
+    <em>upload</em> has no representation in it, so the model writes <code>अपलोड</code>. That is
+    an arithmetic limit, not a quality one — no amount of tuning fixes it without rebuilding the
+    vocabulary.
+  </p>
+  <p>
+    For a Hindi transcript this is usually correct behaviour. For code-switched dictation it is
+    not what you want, and the model that does it properly needs roughly 3 GB of video memory.
+  </p>
+</div>
+
+<h2>Languages</h2>
+
+<div class="prose">
+  <p>Eight, in one 197 MB file. <strong>Declare one at setup.</strong></p>
+</div>
+
+<pre>as  Assamese      bn  Bengali       brx Bodo         gu  Gujarati
+hi  <span class="hl">Hindi</span>         kn  Kannada       ks  Kashmiri     mr  Marathi</pre>
+
+<div class="call">
+  <h4>Hindi and Urdu cannot both be enabled</h4>
+  <p>
+    They are near-identical in sound and differ mainly in script. Asked to choose, a model
+    <em>silently</em> writes the wrong script rather than raising an error — we reproduced exactly
+    that, getting Arabic script out of Hindi audio.
+  </p>
+  <p>
+    Declaring the language at setup removes the model's weakest decision. Wispr Flow's own
+    documentation gives users the same advice, and they have a cloud model covering a hundred
+    languages.
+  </p>
+</div>
+
+<h2>Against the alternatives</h2>
+
+<div class="tbl">
+<table>
+  <thead><tr><th>Model</th><th class="num">Size</th><th>Hardware</th><th class="num">Hindi WER</th><th>Note</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Indic Conformer int8</td><td class="num">197 MB</td><td class="yes">CPU, 1 core</td>
+      <td class="num">11.7%</td><td>this project</td>
+    </tr>
+    <tr>
+      <td>Whisper large-v3-turbo</td><td class="num">1.6 GB</td><td class="no">GPU</td>
+      <td class="num">31.3%</td><td>nearly 3× worse on Hindi, and slower</td>
+    </tr>
+    <tr>
+      <td>Bodhan flex</td><td class="num">4.6 GB</td><td class="no">3 GB VRAM</td>
+      <td class="num">4.1%</td><td>true mixed script; 0.2× realtime on CPU</td>
+    </tr>
+    <tr>
+      <td>Vosk Hindi small</td><td class="num">55 MB</td><td class="yes">CPU</td>
+      <td class="num">—</td><td>the size floor; fixed vocabulary</td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<div class="prose">
+  <p>
+    Whisper is the interesting row. It is the model most people reach for, it is eight times
+    larger, it needs a GPU — and on the same hundred Hindi utterances it was
+    <strong>wrong nearly three times as often</strong>. Whisper supports Hindi the way a menu
+    lists a dish the kitchen cannot cook.
+  </p>
+</div>
+
+<h2>Running it</h2>
+
+<pre><span class="c"># sherpa-onnx wheels lag new Python releases — pin 3.12</span>
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python sherpa-onnx numpy
+
+python scripts/fetch_models.py --indic hi
+python scripts/transcribe.py recording.wav</pre>
+
+<div class="prose">
+  <p>
+    Input must be 16 kHz mono. Anything else converts in one command:
+  </p>
+</div>
+
+<pre>ffmpeg -i input.mp3 -vn -ac 1 -ar 16000 out.wav
+<span class="c">#              -vn drop video  -ac 1 mono  -ar 16000 resample</span></pre>
+
+<div class="call">
+  <h4>Verify the privacy claim yourself</h4>
+  <p>
+    Nothing here is a promise. Run this while transcribing and count the packets:
+  </p>
+  <pre style="margin:10px 0 0">sudo tcpdump -i any port not 22</pre>
+</div>
+
+<h2>What this is not</h2>
+
+<div class="prose">
+  <p>
+    <strong>Not live captioning.</strong> It transcribes a recording or a completed utterance.
+    Word-by-word streaming needs a cache-aware encoder, and no such model has been published for
+    any Indian language.
+  </p>
+  <p>
+    <strong>Not speaker separation.</strong> Diarization is a separate model — about 35 MB, and
+    roughly six times the processing cost of the transcription itself.
+  </p>
+  <p>
+    <strong>Not mixed-script output.</strong> See above. That needs roughly 3 GB of VRAM and a
+    different model.
+  </p>
+</div>
+
+<footer>
+  Measured on an x86-64 workstation CPU and an Intel Arc 140V laptop, 28 September 2026 ·
+  Word error rate on the FLEURS <code>hi_in</code> test set, first 100 utterances ·
+  Model: AI4Bharat Indic Conformer (MIT) · Runtime: sherpa-onnx (Apache-2.0)
+</footer>
+
+</div>

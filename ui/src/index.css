@@ -1,0 +1,41 @@
+/* Inter font — fully local, no CDN */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0b0c10;
+  color: #c5c6c7;
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+.drop-active {
+  border-color: #fbbf24 !important;
+  background: rgba(251,191,36,0.06) !important;
+}
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.5); }
+  50%       { box-shadow: 0 0 0 8px rgba(248,113,113,0); }
+}
+.recording-pulse { animation: pulse-red 1.2s infinite; }
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fade-in 0.3s ease-out; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #1a1c23; }
+::-webkit-scrollbar-thumb { background: #2a2d3a; border-radius: 3px; }
