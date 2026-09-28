@@ -48,6 +48,17 @@ published.
 | [kaldi-native-fbank](https://github.com/csukuangfj/kaldi-native-fbank) | Apache-2.0 — log-mel features, matching what the model was trained on |
 | [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) | Apache-2.0 — diarization pipeline |
 
+## Licences at a glance
+
+| | |
+|---|---|
+| This project's code | MIT — see [LICENSE](LICENSE) |
+| IndicConformer model | MIT (AI4Bharat / IIT Madras, Bhashini, MeitY) |
+| Diarization models + runtimes | Apache-2.0 |
+
+All permit commercial use without further permission. The model licences are
+separate from this project's LICENSE and are not covered by it.
+
 ## If you use this
 
 None of these licences require attribution in your interface. Crediting

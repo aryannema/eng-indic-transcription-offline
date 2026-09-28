@@ -19,11 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-The speech models this software loads are licensed separately and are NOT
-covered by the above. See NOTICE.md. In short: the IndicConformer model is MIT
-(AI4Bharat / IIT Madras, under the Bhashini mission, MeitY, Government of
-India); the diarization models and runtimes are Apache-2.0. All permit
-commercial use without further permission.
